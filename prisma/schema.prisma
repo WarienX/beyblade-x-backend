@@ -11,12 +11,111 @@ datasource db {
   relationMode = "prisma"
 }
 
-model bey_beyblades {
-    id          Int     @id @default(autoincrement())
-    reference   String  @db.VarChar(255) 
-    name        String  @db.VarChar(255)
-    fandomUrl   String? @db.VarChar(255)
-    imageUrl    String? @db.VarChar(255)
-    productInfo Json? 
-    parts       Json?
+// --------------------------------------------------
+// Core Parts Models
+// --------------------------------------------------
+
+model Blade {
+  id          Int      @id @default(autoincrement())
+  uid         String   @unique @db.VarChar(50)    // e.g. "BX-01-001"
+  name        String   @db.VarChar(255)
+  series      String   @db.VarChar(100)   // e.g. "UX", "XT", "Random Booster Vol.1"
+  releaseDate DateTime? @db.Date
+  weight      Float?                       // in grams
+  imageUrl    String?  @db.Text
+  attack      Int?                         // 0-100 community/official rating (optional)
+  defense     Int?
+  stamina     Int?
+  burstResist Int?
+  description String?  @db.Text
+
+  // Relations
+  ratchets    BladeRatchetCompatibility[]  // many-to-many compatibility table
+  combos      ComboBlade[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Ratchet {
+  id          Int      @id @default(autoincrement())
+  uid         String   @unique @db.VarChar(50)    // e.g. "4-60", "9-70"
+  name        String   @db.VarChar(100)
+  height      String   @db.VarChar(20)    // e.g. "Low", "Mid", "High"
+  weight      Float?
+  imageUrl    String?  @db.Text
+
+  // Relations
+  blades      BladeRatchetCompatibility[]
+  bits        RatchetBitCompatibility[]
+  combos      ComboRatchet[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Bit {
+  id          Int      @id @default(autoincrement())
+  uid         String   @unique @db.VarChar(50)    // e.g. "T", "B", "N"
+  name        String   @db.VarChar(100)
+  type        String   @db.VarChar(50)    // Attack, Defense, Stamina, Balance
+  weight      Float?
+  imageUrl    String?  @db.Text
+
+  // Relations
+  ratchets    RatchetBitCompatibility[]
+  combos      ComboBit[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --------------------------------------------------
+// Compatibility Tables (Beyblade X rules)
+// --------------------------------------------------
+
+model BladeRatchetCompatibility {
+  bladeId    Int
+  ratchetId  Int
+
+  blade      Blade    @relation(fields: [bladeId], references: [id], onDelete: Cascade)
+  ratchet    Ratchet  @relation(fields: [ratchetId], references: [id], onDelete: Cascade)
+
+  @@id([bladeId, ratchetId])
+  @@index([bladeId])
+  @@index([ratchetId])
+}
+
+model RatchetBitCompatibility {
+  ratchetId  Int
+  bitId      Int
+
+  ratchet    Ratchet  @relation(fields: [ratchetId], references: [id], onDelete: Cascade)
+  bit        Bit      @relation(fields: [bitId], references: [id], onDelete: Cascade)
+
+  @@id([ratchetId, bitId])
+  @@index([ratchetId])
+  @@index([bitId])
+}
+
+// --------------------------------------------------
+// User-created Combos (your build tool core)
+// --------------------------------------------------
+
+model Combo {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  isPublic    Boolean  @default(true)
+
+  bladeId     Int
+  ratchetId   Int
+  bitId       Int
+
+  blade       Blade    @relation("ComboBlade", fields: [bladeId], references: [id])
+  ratchet     Ratchet  @relation("ComboRatchet", fields: [ratchetId], references: [id])
+  bit         Bit      @relation("ComboBit", fields: [bitId], references: [id])
+
+  authorId    String?  // if you add user auth later
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([bladeId, ratchetId, bitId])
 }
