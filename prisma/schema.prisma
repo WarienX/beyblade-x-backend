@@ -12,49 +12,87 @@ datasource db {
 }
 
 // --------------------------------------------------
-// Core Parts Models
+// Core Parts Models (Updated for CX)
 // --------------------------------------------------
 
-model Blade {
+model MainBlade {
   id          Int      @id @default(autoincrement())
-  uid         String   @unique @db.VarChar(50)    // e.g. "BX-01-001"
+  uid         String   @unique @db.VarChar(50)    // e.g., "CX-01-M01"
   name        String   @db.VarChar(255)
-  series      String   @db.VarChar(100)   // e.g. "UX", "XT", "Random Booster Vol.1"
+  series      String   @db.VarChar(100)   // e.g., "CX-01 Booster"
   releaseDate DateTime? @db.Date
   weight      Float?                       // in grams
   imageUrl    String?  @db.Text
-  attack      Int?                         // 0-100 community/official rating (optional)
+  attack      Int?                         // 0-100 rating
   defense     Int?
   stamina     Int?
   burstResist Int?
   description String?  @db.Text
 
-  // Relations
-  ratchets    BladeRatchetCompatibility[]  // many-to-many compatibility table
-  combos      ComboBlade[]
+  // CX Relations
+  assemblies  BladeAssemblyMain[]
+  combos      Combo[]  // For simple BX/UX fallback if needed
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
+model AssistBlade {
+  id          Int      @id @default(autoincrement())
+  uid         String   @unique @db.VarChar(50)    // e.g., "CX-01-A01"
+  name        String   @db.VarChar(255)           // e.g., "Bumper Assist"
+  series      String   @db.VarChar(100)
+  releaseDate DateTime? @db.Date
+  weight      Float?
+  imageUrl    String?  @db.Text
+  spinMod     String?  @db.VarChar(50)    // e.g., "Right", "Left", "Dual", "Free-Spin"
+  description String?  @db.Text
+
+  // Relations
+  assemblies  BladeAssemblyAssist[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LockChip {
+  id          Int      @id @default(autoincrement())
+  uid         String   @unique @db.VarChar(50)    // e.g., "CX-01-LP"
+  name        String   @db.VarChar(100)           // e.g., "Perseus Lock Chip"
+  series      String   @db.VarChar(100)
+  releaseDate DateTime? @db.Date
+  weight      Float?   // Usually ~0.5-1g
+  imageUrl    String?  @db.Text
+  description String?  @db.Text
+
+  // Relations
+  assemblies  BladeAssemblyLockChip[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --------------------------------------------------
+// Ratchet & Bit (Unchanged, but new CX variants can be added)
+// --------------------------------------------------
+
 model Ratchet {
   id          Int      @id @default(autoincrement())
-  uid         String   @unique @db.VarChar(50)    // e.g. "4-60", "9-70"
+  uid         String   @unique @db.VarChar(50)    // e.g., "4-55", "6-60"
   name        String   @db.VarChar(100)
-  height      String   @db.VarChar(20)    // e.g. "Low", "Mid", "High"
+  height      String   @db.VarChar(20)    // e.g., "Low", "Mid", "High"
   weight      Float?
   imageUrl    String?  @db.Text
 
   // Relations
-  blades      BladeRatchetCompatibility[]
-  bits        RatchetBitCompatibility[]
-  combos      ComboRatchet[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  bladeAssemblies  RatchetBladeAssemblyCompatibility[]  // Updated for assemblies
+  bits             RatchetBitCompatibility[]
+  combos           ComboRatchet[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Bit {
   id          Int      @id @default(autoincrement())
-  uid         String   @unique @db.VarChar(50)    // e.g. "T", "B", "N"
+  uid         String   @unique @db.VarChar(50)    // e.g., "Vortex", "Wedge"
   name        String   @db.VarChar(100)
   type        String   @db.VarChar(50)    // Attack, Defense, Stamina, Balance
   weight      Float?
@@ -68,19 +106,71 @@ model Bit {
 }
 
 // --------------------------------------------------
-// Compatibility Tables (Beyblade X rules)
+// Compatibility Tables (Updated for CX Assemblies)
 // --------------------------------------------------
 
-model BladeRatchetCompatibility {
-  bladeId    Int
-  ratchetId  Int
+model BladeAssemblyMain {
+  assemblyId  Int
+  mainBladeId Int
 
-  blade      Blade    @relation(fields: [bladeId], references: [id], onDelete: Cascade)
-  ratchet    Ratchet  @relation(fields: [ratchetId], references: [id], onDelete: Cascade)
+  assembly    BladeAssembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  mainBlade   MainBlade     @relation(fields: [mainBladeId], references: [id], onDelete: Cascade)
 
-  @@id([bladeId, ratchetId])
-  @@index([bladeId])
+  @@id([assemblyId, mainBladeId])
+  @@index([assemblyId])
+  @@index([mainBladeId])
+}
+
+model BladeAssemblyAssist {
+  assemblyId   Int
+  assistBladeId Int
+
+  assembly    BladeAssembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  assistBlade AssistBlade   @relation(fields: [assistBladeId], references: [id], onDelete: Cascade)
+
+  @@id([assemblyId, assistBladeId])
+  @@index([assemblyId])
+  @@index([assistBladeId])
+}
+
+model BladeAssemblyLockChip {
+  assemblyId   Int
+  lockChipId  Int
+
+  assembly   BladeAssembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  lockChip   LockChip      @relation(fields: [lockChipId], references: [id], onDelete: Cascade)
+
+  @@id([assemblyId, lockChipId])
+  @@index([assemblyId])
+  @@index([lockChipId])
+}
+
+model BladeAssembly {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(255)  // e.g., "Dran Eclipse Assembly"
+  description String? @db.Text
+  totalWeight Float?  // Calculated sum of Main + Assist + Lock
+  stats     Json?    // Aggregated {attack, defense, etc.} for the assembly
+
+  mains     BladeAssemblyMain[]
+  assists   BladeAssemblyAssist[]
+  locks     BladeAssemblyLockChip[]
+  ratchets  RatchetBladeAssemblyCompatibility[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RatchetBladeAssemblyCompatibility {
+  ratchetId     Int
+  bladeAssemblyId String
+
+  ratchet      Ratchet       @relation(fields: [ratchetId], references: [id], onDelete: Cascade)
+  bladeAssembly BladeAssembly @relation(fields: [bladeAssemblyId], references: [id], onDelete: Cascade)
+
+  @@id([ratchetId, bladeAssemblyId])
   @@index([ratchetId])
+  @@index([bladeAssemblyId])
 }
 
 model RatchetBitCompatibility {
@@ -96,26 +186,26 @@ model RatchetBitCompatibility {
 }
 
 // --------------------------------------------------
-// User-created Combos (your build tool core)
+// User-created Combos (Updated for CX)
 // --------------------------------------------------
 
 model Combo {
-  id          String   @id @default(cuid())
-  name        String   @db.VarChar(255)
-  description String?  @db.Text
-  isPublic    Boolean  @default(true)
+  id               String   @id @default(cuid())
+  name             String   @db.VarChar(255)
+  description      String?  @db.Text
+  isPublic         Boolean  @default(true)
 
-  bladeId     Int
-  ratchetId   Int
-  bitId       Int
+  bladeAssemblyId  String   // For CX; nullable for BX/UX simple blades if added
+  ratchetId        Int
+  bitId            Int
 
-  blade       Blade    @relation("ComboBlade", fields: [bladeId], references: [id])
-  ratchet     Ratchet  @relation("ComboRatchet", fields: [ratchetId], references: [id])
-  bit         Bit      @relation("ComboBit", fields: [bitId], references: [id])
+  bladeAssembly    BladeAssembly @relation(fields: [bladeAssemblyId], references: [id])
+  ratchet          Ratchet       @relation("ComboRatchet", fields: [ratchetId], references: [id])
+  bit              Bit           @relation("ComboBit", fields: [bitId], references: [id])
 
-  authorId    String?  // if you add user auth later
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  authorId         String?  // For future auth
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  @@index([bladeId, ratchetId, bitId])
+  @@index([bladeAssemblyId, ratchetId, bitId])
 }
